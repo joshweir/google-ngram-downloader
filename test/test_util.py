@@ -28,6 +28,35 @@ def test_get_indices_5grams(bigrams_indices):
 
     assert set(indices) == (bigrams_indices - set(['qk']))
 
+def test_get_indices_1grams_coverage_1m(unigram_indices_1m):
+    indices = list(get_indices(1, coverage="1M"))
+    assert len(set(indices)) == len(indices)
+
+    assert set(indices) == unigram_indices_1m
+
+def test_get_indices_2grams_coverage_1m(bigram_indices_1m):
+    indices = list(get_indices(2, coverage="1M"))
+    assert len(set(indices)) == len(indices)
+
+    assert set(indices) == bigram_indices_1m
+
+def test_get_indices_3grams_coverage_1m(trigram_indices_1m):
+    indices = list(get_indices(3, coverage="1M"))
+    assert len(set(indices)) == len(indices)
+
+    assert set(indices) == trigram_indices_1m
+
+def test_get_indices_4grams_coverage_1m(quadgram_indices_1m):
+    indices = list(get_indices(4, coverage="1M"))
+    assert len(set(indices)) == len(indices)
+
+    assert set(indices) == quadgram_indices_1m
+
+def test_get_indices_5grams_coverage_1m(fivegram_indices_1m):
+    indices = list(get_indices(5, coverage="1M"))
+    assert len(set(indices)) == len(indices)
+
+    assert set(indices) == fivegram_indices_1m
 
 @pytest.mark.parametrize(
     ('ngram', 'expected_result', 'index'),

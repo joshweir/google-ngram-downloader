@@ -23,12 +23,17 @@ def download(
         'eng',
         'Language. [eng|eng-us|eng-gb|eng-fiction|chi-sim|fre|ger|heb|ita|rus|spa]',
     ),
+    coverage=(
+        'c', 
+        'all', 
+        'The coverage / or set of data to download. [all|1M] (the default entire set "all", or the english one million "1M")',
+    ),
 ):
-    """Download The Google Books Ngram Viewer dataset version 20120701."""
+    """Download The Google Books Ngram Viewer dataset version 20120701 or the english one million version 20090715."""
     output = local(output.format(ngram_len=ngram_len))
     output.ensure_dir()
 
-    for fname, url, request in iter_google_store(ngram_len, verbose=verbose, lang=lang):
+    for fname, url, request in iter_google_store(ngram_len, verbose=verbose, lang=lang, coverage=coverage):
         with output.join(fname).open('wb') as f:
             for num, chunk in enumerate(request.iter_content(1024)):
                 if verbose and not divmod(num, 1024)[1]:
@@ -53,13 +58,18 @@ def cooccurrence(
         'eng',
         'Language. [eng|eng-us|eng-gb|eng-fiction|chi-sim|fre|ger|heb|ita|rus|spa]',
     ),
+    coverage=(
+        'c', 
+        'all', 
+        'The coverage / or set of data to download. [all|1M] (the default entire set "all", or the english one million "1M")',
+    ),
 ):
     """Write the cooccurrence frequencies of a word and its contexts."""
     assert ngram_len > 1
     output_dir = local(output.format(ngram_len=ngram_len))
     output_dir.ensure_dir()
 
-    for fname, _, all_records in readline_google_store(ngram_len, lang=lang,  verbose=verbose):
+    for fname, _, all_records in readline_google_store(ngram_len, lang=lang,  verbose=verbose, coverage=coverage):
         postfix = 0
         while (True):
             records = islice(all_records, records_in_file)
@@ -101,9 +111,14 @@ def readline(
         'eng',
         'Language. [eng|eng-us|eng-gb|eng-fiction|chi-sim|fre|ger|heb|ita|rus|spa]',
     ),
+    coverage=(
+        'c', 
+        'all', 
+        'The coverage / or set of data to download. [all|1M] (the default entire set "all", or the english one million "1M")',
+    ),
 ):
     """Print the raw content."""
 
-    for _, _, records in readline_google_store(ngram_len, lang=lang):
+    for _, _, records in readline_google_store(ngram_len, lang=lang, coverage=coverage):
         for record in records:
             print(u'{ngram}\t{year}\t{match_count}\t{volume_count}'.format(**record._asdict()))

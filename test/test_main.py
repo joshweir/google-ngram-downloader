@@ -106,7 +106,7 @@ def test_cooccurrence(tmpdir, monkeypatch, verbose):
 
         return _open()
 
-    monkeypatch.setattr(util, 'get_indices', lambda ngram_len: ['a'])
+    monkeypatch.setattr(util, 'get_indices', lambda ngram_len, coverage="all": ['a'])
 
     cooccurrence.command(
         '-o {tmpdir} -n 5 --records-in-file 3 {verbose}'

@@ -10,7 +10,7 @@ import requests
 URL_TEMPLATE = 'http://storage.googleapis.com/books/ngrams/books/{}'
 # URL_TEMPLATE = 'http://localhost:8001/{}'
 
-FILE_TEMPLATE = 'googlebooks-{lang}-all-{ngram_len}gram-{version}-{index}.gz'
+FILE_TEMPLATE = 'googlebooks-{lang}-{coverage}-{ngram_len}gram-{version}-{index}.gz'
 
 
 Record = collections.namedtuple('Record', 'ngram year match_count volume_count')
@@ -24,7 +24,7 @@ class StreamInterruptionError(Exception):
         self.message = message
 
 
-def readline_google_store(ngram_len, lang='eng', indices=None, chunk_size=1024 ** 2, verbose=False):
+def readline_google_store(ngram_len, lang='eng', coverage="all", indices=None, chunk_size=1024 ** 2, verbose=False):
     """Iterate over the data in the Google ngram collectioin.
 
         :param int ngram_len: the length of ngrams to be streamed.
@@ -37,7 +37,7 @@ def readline_google_store(ngram_len, lang='eng', indices=None, chunk_size=1024 *
 
     """
 
-    for fname, url, request in iter_google_store(ngram_len, verbose=verbose, lang=lang, indices=indices):
+    for fname, url, request in iter_google_store(ngram_len, verbose=verbose, lang=lang, coverage=coverage, indices=indices):
         dec = zlib.decompressobj(32 + zlib.MAX_WBITS)
 
         def lines():
@@ -101,7 +101,7 @@ def count_coccurrence(records, index):
     return counter
 
 
-def iter_google_store(ngram_len, lang="eng", indices=None, verbose=False):
+def iter_google_store(ngram_len, lang="eng", coverage="all", indices=None, verbose=False):
     """Iterate over the collection files stored at Google.
 
     :param int ngram_len: the length of ngrams to be streamed.
@@ -111,13 +111,16 @@ def iter_google_store(ngram_len, lang="eng", indices=None, verbose=False):
 
     """
     version = '20120701'
+    if coverage == "1M":
+        version = '20090715'
     session = requests.Session()
 
-    indices = get_indices(ngram_len) if indices is None else indices
+    indices = get_indices(ngram_len, coverage=coverage) if indices is None else indices
 
     for index in indices:
         fname = FILE_TEMPLATE.format(
             lang=lang,
+            coverage=coverage,
             ngram_len=ngram_len,
             version=version,
             index=index,
@@ -149,9 +152,16 @@ def iter_google_store(ngram_len, lang="eng", indices=None, verbose=False):
         if verbose:
             sys.stderr.write('\n')
 
+def get_indices(ngram_len, coverage="all"):
+    if coverage == "all":
+        return get_indices_all(ngram_len)
+    if coverage == "1M":
+        return get_indices_1m(ngram_len)
+    else: 
+        raise ValueError("unexpected value for coverage: {0}".format(coverage))
 
-def get_indices(ngram_len):
-    """Generate the file indeces depening on the ngram length, based on version 20120701.
+def get_indices_all(ngram_len):
+    """Generate the file indices depening on the ngram length, based on version 20120701.
 
     For 1grams it is::
 
@@ -221,3 +231,25 @@ def get_indices(ngram_len):
         )
 
     return chain(digits, letter_indices, other_indices)
+
+def get_indices_1m(ngram_len):
+    """Generate the file indices for coverage: "one million" depending on the ngram length, based on version 20090715.
+
+    For 1grams it is::
+
+        0 1 2 3 4 5 6 7 8 9
+
+    For others::
+
+        0 up to 799
+
+    See http://storage.googleapis.com/books/ngrams/books/datasetsv2.html for
+    more details.
+
+    """
+    range_max_lookup = { 1: 9, 2: 99, 3: 199, 4: 399, 5: 799 }
+
+    if ngram_len in (1, 2, 3, 4, 5):
+        return map(lambda x: str(x), range(0, range_max_lookup[ngram_len] + 1))
+    else:
+        raise ValueError('get_indices_1m doesnt support ngram_len: {0}'.format(ngram_len))

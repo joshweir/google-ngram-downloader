@@ -204,7 +204,9 @@ def get_indices(ngram_len):
 
     else:
         letter_indices = ((''.join(i) for i in product(ascii_lowercase, ascii_lowercase + '_')))
-
+        if ngram_len == 5:
+            letter_indices = filter(lambda x: x != 'qk', letter_indices)
+        
         other_indices += (
             '_ADJ_',
             '_ADP_',

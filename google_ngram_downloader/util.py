@@ -166,7 +166,6 @@ def iter_google_store(ngram_len, lang="eng", coverage="all", indices=None, verbo
                     request=request,
                 ),
             )
-            exit()
             continue
 
         yield fname, url, request

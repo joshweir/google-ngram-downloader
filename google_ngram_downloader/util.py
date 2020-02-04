@@ -1,6 +1,6 @@
 import collections
 import sys
-import zlib
+import zlib, zipfile, io
 from itertools import product, chain, groupby
 from string import ascii_lowercase, digits
 
@@ -10,7 +10,7 @@ import requests
 URL_TEMPLATE = 'http://storage.googleapis.com/books/ngrams/books/{}'
 # URL_TEMPLATE = 'http://localhost:8001/{}'
 
-FILE_TEMPLATE = 'googlebooks-{lang}-{coverage}-{ngram_len}gram-{version}-{index}.gz'
+FILE_TEMPLATE = 'googlebooks-{lang}-{coverage}-{ngram_len}gram-{version}-{index}{ext}'
 
 
 Record = collections.namedtuple('Record', 'ngram year match_count volume_count')
@@ -38,31 +38,48 @@ def readline_google_store(ngram_len, lang='eng', coverage="all", indices=None, c
     """
 
     for fname, url, request in iter_google_store(ngram_len, verbose=verbose, lang=lang, coverage=coverage, indices=indices):
-        dec = zlib.decompressobj(32 + zlib.MAX_WBITS)
+        dec = zlib.decompressobj(32 + zlib.MAX_WBITS) if coverage == "all" else None
 
         def lines():
-            last = b''
-            compressed_chunks = request.iter_content(chunk_size=chunk_size)
+            if coverage == "1M":
+                last = b''
 
-            for i, compressed_chunk in enumerate(compressed_chunks):
-                chunk = dec.decompress(compressed_chunk)
+                z = zipfile.ZipFile(io.BytesIO(request.content))
+                for name in z.namelist():
+                    files_contents = z.read(name) 
+                    lines = files_contents.split(b'\n')
+                    lines, last = lines[:-1], lines[-1]
 
-                lines = (last + chunk).split(b'\n')
-                lines, last = lines[:-1], lines[-1]
+                    for line in lines:
+                        line = line.decode('utf-8')
+                        data = line.split('\t')
+                        assert len(data) == 5
+                        ngram = data[0]
+                        year, match_count, page_count, volume_count = list(map(int, data[1:]))
+                        yield Record(ngram, year, match_count, volume_count)
+            else:
+                last = b''
+                compressed_chunks = request.iter_content(chunk_size=chunk_size)
 
-                for line in lines:
-                    line = line.decode('utf-8')
-                    data = line.split('\t')
-                    assert len(data) == 4
-                    ngram = data[0]
-                    other = map(int, data[1:])
-                    yield Record(ngram, *other)
+                for i, compressed_chunk in enumerate(compressed_chunks):
+                    chunk = dec.decompress(compressed_chunk)
 
-            if last:
-                raise StreamInterruptionError(
-                    url,
-                    "Data stream ended on a non-empty line. This might be due "
-                    "to temporary networking problems.")
+                    lines = (last + chunk).split(b'\n')
+                    lines, last = lines[:-1], lines[-1]
+
+                    for line in lines:
+                        line = line.decode('utf-8')
+                        data = line.split('\t')
+                        assert len(data) == 4
+                        ngram = data[0]
+                        other = map(int, data[1:])
+                        yield Record(ngram, *other)
+
+                if last:
+                    raise StreamInterruptionError(
+                        url,
+                        "Data stream ended on a non-empty line. This might be due "
+                        "to temporary networking problems.")
 
         yield fname, url, lines()
 
@@ -111,8 +128,10 @@ def iter_google_store(ngram_len, lang="eng", coverage="all", indices=None, verbo
 
     """
     version = '20120701'
+    ext = '.gz'
     if coverage == "1M":
         version = '20090715'
+        ext = '.csv.zip'
     session = requests.Session()
 
     indices = get_indices(ngram_len, coverage=coverage) if indices is None else indices
@@ -124,6 +143,7 @@ def iter_google_store(ngram_len, lang="eng", coverage="all", indices=None, verbo
             ngram_len=ngram_len,
             version=version,
             index=index,
+            ext=ext,
         )
 
         url = URL_TEMPLATE.format(fname)
@@ -140,11 +160,13 @@ def iter_google_store(ngram_len, lang="eng", coverage="all", indices=None, verbo
         request = session.get(url, stream=True)
         if request.status_code != 200:
             sys.stderr.write(
-                'Error Downloading {url} '
+                'Error Downloading {url} {request}'
                 ''.format(
                     url=url,
+                    request=request,
                 ),
             )
+            exit()
             continue
 
         yield fname, url, request

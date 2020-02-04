@@ -70,3 +70,14 @@ Example use of the API
 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-all-5gram-20120701-0.gz'
 >>> next(records)
 Record(ngram=u'0 " A most useful', year=1860, match_count=1, volume_count=1)
+>>> 
+>>> # alternatively download the "English One Million" data
+...
+>>> fname, url, records = next(readline_google_store(ngram_len=5, coverage="1M"))
+>>> fname
+'googlebooks-eng-1M-5gram-20090715-0.csv.zip'
+>>> url
+'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-0.csv.zip'
+>>> next(records)
+Record(ngram='"! "" "" He got"', year=1846, match_count=1, volume_count=1)
+>>> 

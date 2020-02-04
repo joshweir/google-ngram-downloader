@@ -44,19 +44,17 @@ def readline_google_store(ngram_len, lang='eng', coverage="all", indices=None, c
             if coverage == "1M":
                 last = b''
 
-                z = zipfile.ZipFile(io.BytesIO(request.content))
-                for name in z.namelist():
-                    files_contents = z.read(name) 
-                    lines = files_contents.split(b'\n')
-                    lines, last = lines[:-1], lines[-1]
-
-                    for line in lines:
-                        line = line.decode('utf-8')
-                        data = line.split('\t')
-                        assert len(data) == 5
-                        ngram = data[0]
-                        year, match_count, page_count, volume_count = list(map(int, data[1:]))
-                        yield Record(ngram, year, match_count, volume_count)
+                with zipfile.ZipFile(io.BytesIO(request.content)) as z:
+                    for name in z.namelist():
+                        with z.open(name) as f:
+                            for line in f:
+                                if len(line) > 0:
+                                    line = line.decode('utf-8')
+                                    data = line.split('\t')
+                                    assert len(data) == 5
+                                    ngram = data[0]
+                                    year, match_count, page_count, volume_count = list(map(int, data[1:]))
+                                    yield Record(ngram, year, match_count, volume_count)
             else:
                 last = b''
                 compressed_chunks = request.iter_content(chunk_size=chunk_size)
@@ -82,7 +80,6 @@ def readline_google_store(ngram_len, lang='eng', coverage="all", indices=None, c
                         "to temporary networking problems.")
 
         yield fname, url, lines()
-
 
 def ngram_to_cooc(ngram, count, index):
     ngram = ngram.split()
